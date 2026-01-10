@@ -103,7 +103,9 @@ public class GPUPerformanceProfiler {
                                           useOptimizedKernel: Bool = true,
                                           iterations: Int = 10) throws -> PerformanceMetrics {
         
-        log.info("Profiling distance computation - optimized: \(useOptimizedKernel), iterations: \(iterations)")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            log.info("Profiling distance computation - optimized: \(useOptimizedKernel), iterations: \(iterations)")
+        }
         
         // Create test data
         let splatBuffer = try MetalBuffer<Splat>(device: device, capacity: splatCount)
@@ -167,7 +169,9 @@ public class GPUPerformanceProfiler {
     
     /// Compare baseline vs optimized GPU memory access patterns
     public func compareOptimizations(splatCount: Int, iterations: Int = 10) throws -> OptimizationComparison {
-        log.info("Comparing baseline vs optimized GPU memory access patterns")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            log.info("Comparing baseline vs optimized GPU memory access patterns")
+        }
         
         let baselineMetrics = try profileDistanceComputation(
             splatCount: splatCount,
@@ -183,8 +187,10 @@ public class GPUPerformanceProfiler {
         
         let comparison = OptimizationComparison(baseline: baselineMetrics, optimized: optimizedMetrics)
         
-        log.info("Performance improvement: \(String(format: "%.1f", comparison.performanceGain))%")
-        log.info("Memory efficiency gain: \(String(format: "%.1f", comparison.memoryEfficiencyGain))%")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            log.info("Performance improvement: \(String(format: "%.1f", comparison.performanceGain))%")
+            log.info("Memory efficiency gain: \(String(format: "%.1f", comparison.memoryEfficiencyGain))%")
+        }
         
         return comparison
     }
@@ -193,7 +199,9 @@ public class GPUPerformanceProfiler {
     
     private func setupPerformanceCounters() {
         // Setup GPU performance counters if available
-        log.debug("Setting up GPU performance counters")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            log.debug("Setting up GPU performance counters")
+        }
     }
     
     private func populateTestSplats(buffer: MetalBuffer<Splat>, count: Int) throws {
@@ -234,7 +242,9 @@ public class GPUPerformanceProfiler {
         
         // This would normally use the actual compute pipeline states from SplatRenderer
         // For now, this is a placeholder showing the profiling structure
-        log.debug("Encoding distance compute kernel - optimized: \(useOptimized)")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            log.debug("Encoding distance compute kernel - optimized: \(useOptimized)")
+        }
         
         // In actual implementation, would encode the appropriate compute kernel
         // based on useOptimized flag (original vs threadgroup-cached version)

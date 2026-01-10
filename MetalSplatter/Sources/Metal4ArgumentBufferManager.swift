@@ -69,7 +69,9 @@ public class Metal4ArgumentBufferManager {
         }
         
         self.argumentBuffer = argBuffer
-        Self.log.info("✅ Created real MTLArgumentEncoder with length: \(encoder.encodedLength)")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            Self.log.info("✅ Created real MTLArgumentEncoder with length: \(encoder.encodedLength)")
+        }
     }
     
     private func setupResidencySet() throws {
@@ -77,7 +79,9 @@ public class Metal4ArgumentBufferManager {
         // For iOS 26.0+ Beta, we'll use placeholder implementation
         // In production, this would create real residency sets for memory management
         
-        Self.log.info("✅ Metal4 residency management initialized (placeholder for iOS 26.0+)")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            Self.log.info("✅ Metal4 residency management initialized (placeholder for iOS 26.0+)")
+        }
     }
     
     // MARK: - Resource Management
@@ -97,7 +101,9 @@ public class Metal4ArgumentBufferManager {
         // In current Metal, we would use makeResident/evict directly on resources
         
         splatBuffers.append(buffer)
-        Self.log.debug("Registered splat buffer at index \(index) using real MTLArgumentEncoder")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            Self.log.debug("Registered splat buffer at index \(index) using real MTLArgumentEncoder")
+        }
     }
     
     public func makeResourcesResident(commandBuffer: MTLCommandBuffer) {
@@ -105,7 +111,9 @@ public class Metal4ArgumentBufferManager {
         // For iOS 26.0+ Beta, we'll use the current available APIs
         // In production Metal 4, this would manage resource residency automatically
         
-        Self.log.debug("Applied resource residency management (placeholder for iOS 26.0+)")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            Self.log.debug("Applied resource residency management (placeholder for iOS 26.0+)")
+        }
     }
     
     // MARK: - Render Pass Integration
@@ -120,7 +128,9 @@ public class Metal4ArgumentBufferManager {
         renderEncoder.setVertexBuffer(argBuffer, offset: 0, index: index)
         renderEncoder.setFragmentBuffer(argBuffer, offset: 0, index: index)
         
-        Self.log.debug("Bound argument buffer at index \(index)")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            Self.log.debug("Bound argument buffer at index \(index)")
+        }
     }
     
     // MARK: - Statistics

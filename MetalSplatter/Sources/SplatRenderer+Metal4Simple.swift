@@ -36,15 +36,17 @@ extension SplatRenderer {
         // Register existing splat buffer with the argument buffer manager
         try Self._metal4ArgumentBufferManager?.registerSplatBuffer(splatBuffer.buffer, at: 0)
         
-        print("🚀 Metal 4 Bindless Resources Initialized")
-        print("   Device: \(device.name)")
-        print("   GPU Family: Apple 9+")
-        print("   Implementation: Real MTLArgumentEncoder")
-        print("   Expected Benefits:")
-        print("   • 50-80% CPU overhead reduction")
-        print("   • Bindless resource access via argument buffers")
-        print("   • Real MTLResidencySet memory management")
-        print("   • Enhanced parallel rendering")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            print("🚀 Metal 4 Bindless Resources Initialized")
+            print("   Device: \(device.name)")
+            print("   GPU Family: Apple 9+")
+            print("   Implementation: Real MTLArgumentEncoder")
+            print("   Expected Benefits:")
+            print("   • 50-80% CPU overhead reduction")
+            print("   • Bindless resource access via argument buffers")
+            print("   • Real MTLResidencySet memory management")
+            print("   • Enhanced parallel rendering")
+        }
         
         // Set a flag to indicate Metal 4 is active
         UserDefaults.standard.set(true, forKey: "MetalSplatter.Metal4Active")
@@ -53,6 +55,8 @@ extension SplatRenderer {
     /// Print Metal 4 statistics using real argument buffer manager data
     @available(iOS 26.0, macOS 26.0, tvOS 26.0, visionOS 26.0, *)
     public func printMetal4Statistics() {
+        guard DebugFlags.isStatisticsLoggingEnabled else { return }
+        
         let isActive = UserDefaults.standard.bool(forKey: "MetalSplatter.Metal4Active")
         
         print("=== Metal 4 Bindless Status ===")

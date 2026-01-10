@@ -13,7 +13,9 @@ extension SplatRenderer {
             throw BindlessError.unsupportedDevice("Device must support Apple GPU Family 7+ for bindless")
         }
         
-        Self.log.info("Initializing enhanced Metal 4 bindless architecture...")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            Self.log.info("Initializing enhanced Metal 4 bindless architecture...")
+        }
         
         // Create bindless architecture with optimized configuration
         let config = Metal4BindlessArchitecture.Configuration(
@@ -34,11 +36,13 @@ extension SplatRenderer {
         // Store reference (would normally be a property)
         objc_setAssociatedObject(self, &bindlessArchitectureKey, bindlessArch, .OBJC_ASSOCIATION_RETAIN_NONATOMIC)
         
-        Self.log.info("✅ Enhanced bindless architecture initialized successfully")
-        Self.log.info("   • Background resource population: ENABLED")
-        Self.log.info("   • Residency tracking: ENABLED")
-        Self.log.info("   • Per-draw binding: ELIMINATED")
-        Self.log.info("   • Expected CPU overhead reduction: 50-80%")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            Self.log.info("✅ Enhanced bindless architecture initialized successfully")
+            Self.log.info("   • Background resource population: ENABLED")
+            Self.log.info("   • Residency tracking: ENABLED")
+            Self.log.info("   • Per-draw binding: ELIMINATED")
+            Self.log.info("   • Expected CPU overhead reduction: 50-80%")
+        }
     }
     
     /// Register existing buffers for bindless access
@@ -188,7 +192,7 @@ extension SplatRenderer {
     private func logBindlessPerformance(_ bindless: Metal4BindlessArchitecture) {
         let stats = bindless.getStatistics()
         
-        if uniformBufferIndex % 100 == 0 { // Log periodically
+        if uniformBufferIndex % 100 == 0, DebugFlags.isStatisticsLoggingEnabled { // Log periodically
             Self.log.info("=== Bindless Performance ===")
             Self.log.info("Render passes without per-draw binding: \(stats.metrics.renderPassesWithoutBinding)")
             Self.log.info("Resources populated in background: \(stats.metrics.resourcesPopulatedInBackground)")
@@ -216,12 +220,16 @@ extension SplatRenderer {
         guard let bindless = getBindlessArchitecture() else { return }
         
         bindless.handleMemoryPressure()
-        Self.log.info("Handled memory pressure for bindless resources")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            Self.log.info("Handled memory pressure for bindless resources")
+        }
     }
     
     /// Print detailed bindless statistics
     @available(iOS 18.0, macOS 15.0, visionOS 2.0, *)
     public func printBindlessStatistics() {
+        guard DebugFlags.isStatisticsLoggingEnabled else { return }
+        
         guard let bindless = getBindlessArchitecture() else {
             Self.log.info("Bindless architecture not initialized")
             return

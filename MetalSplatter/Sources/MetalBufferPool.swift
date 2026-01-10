@@ -308,11 +308,15 @@ public class MetalBufferPool<T> {
             
             switch level {
             case .warning:
-                self.log.info("Memory pressure warning - trimming buffer pool")
+                if DebugFlags.isStatisticsLoggingEnabled {
+                    self.log.info("Memory pressure warning - trimming buffer pool")
+                }
                 self.trimToMemoryPressure()
                 
             case .critical:
-                self.log.warning("Critical memory pressure - clearing buffer pool")
+                if DebugFlags.isStatisticsLoggingEnabled {
+                    self.log.warning("Critical memory pressure - clearing buffer pool")
+                }
                 self.clearAll()
             }
         }
@@ -337,7 +341,7 @@ public class MetalBufferPool<T> {
             }
             
             let trimmedCount = originalSize - self.availableBuffers.count
-            if trimmedCount > 0 {
+            if trimmedCount > 0, DebugFlags.isStatisticsLoggingEnabled {
                 self.log.info("Trimmed \(trimmedCount) buffers due to memory pressure")
             }
         }
@@ -351,7 +355,7 @@ public class MetalBufferPool<T> {
             let clearedCount = self.availableBuffers.count
             self.availableBuffers.removeAll()
             
-            if clearedCount > 0 {
+            if clearedCount > 0, DebugFlags.isStatisticsLoggingEnabled {
                 self.log.info("Cleared all \(clearedCount) buffers from pool")
             }
         }
@@ -403,7 +407,9 @@ public class MetalBufferPool<T> {
                     do {
                         let descriptor = MTLResidencySetDescriptor()
                         residencySet = try device.makeResidencySet(descriptor: descriptor)
-                        log.info("Metal 4.0: Residency tracking enabled")
+                        if DebugFlags.isStatisticsLoggingEnabled {
+                            log.info("Metal 4.0: Residency tracking enabled")
+                        }
                     } catch {
                         log.error("Metal 4.0: Failed to create residency set: \(error)")
                     }
@@ -412,12 +418,18 @@ public class MetalBufferPool<T> {
                 // Setup argument encoder for buffer pool management
                 setupArgumentEncoder()
                 
-                log.info("Metal 4.0: Buffer pool optimizations enabled")
+                if DebugFlags.isStatisticsLoggingEnabled {
+                    log.info("Metal 4.0: Buffer pool optimizations enabled")
+                }
             } else {
-                log.info("Metal 4.0: Device doesn't support Apple GPU Family 9+, optimizations disabled")
+                if DebugFlags.isStatisticsLoggingEnabled {
+                    log.info("Metal 4.0: Device doesn't support Apple GPU Family 9+, optimizations disabled")
+                }
             }
         } else {
-            log.info("Metal 4.0: iOS 26.0+ required for optimizations")
+            if DebugFlags.isStatisticsLoggingEnabled {
+                log.info("Metal 4.0: iOS 26.0+ required for optimizations")
+            }
         }
     }
     
@@ -426,7 +438,9 @@ public class MetalBufferPool<T> {
         // Create argument encoder for efficient buffer binding
         // This is a placeholder - actual implementation would depend on shader requirements
         // argumentEncoder = device.makeArgumentEncoder(arguments: [...])
-        log.debug("Metal 4.0: Argument encoder setup (placeholder)")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            log.debug("Metal 4.0: Argument encoder setup (placeholder)")
+        }
     }
     
     /// Track buffer residency for Metal 4.0 optimization
@@ -435,7 +449,9 @@ public class MetalBufferPool<T> {
             if let residencySet = residencySet as? MTLResidencySet, configuration.useResidencyTracking {
                 // Add buffer to residency set for GPU memory tracking
                 // residencySet.addAllocation(buffer.buffer)
-                log.debug("Metal 4.0: Tracking buffer residency for capacity \(buffer.capacity)")
+                if DebugFlags.isStatisticsLoggingEnabled {
+                    log.debug("Metal 4.0: Tracking buffer residency for capacity \(buffer.capacity)")
+                }
             }
         }
     }

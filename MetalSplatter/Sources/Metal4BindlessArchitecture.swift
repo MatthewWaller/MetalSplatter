@@ -85,10 +85,12 @@ public class Metal4BindlessArchitecture {
             startBackgroundResourcePopulation()
         }
         
-        Self.log.info("✅ Metal 4 Bindless Architecture initialized")
-        Self.log.info("   Max Resources: \(configuration.maxResources)")
-        Self.log.info("   Background Population: \(configuration.enableBackgroundPopulation)")
-        Self.log.info("   Residency Tracking: \(configuration.enableResidencyTracking)")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            Self.log.info("✅ Metal 4 Bindless Architecture initialized")
+            Self.log.info("   Max Resources: \(configuration.maxResources)")
+            Self.log.info("   Background Population: \(configuration.enableBackgroundPopulation)")
+            Self.log.info("   Residency Tracking: \(configuration.enableResidencyTracking)")
+        }
     }
     
     // MARK: - Setup Methods
@@ -144,7 +146,9 @@ public class Metal4BindlessArchitecture {
         self.indirectArgumentBuffer = buffer
         buffer.label = "Metal4 Bindless Argument Buffer"
         
-        Self.log.info("Created argument encoder with \(argumentDescriptors.count) descriptors, buffer size: \(bufferSize) bytes")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            Self.log.info("Created argument encoder with \(argumentDescriptors.count) descriptors, buffer size: \(bufferSize) bytes")
+        }
     }
     
     private func setupResourceTable() throws {
@@ -163,7 +167,9 @@ public class Metal4BindlessArchitecture {
             contents[i] = ResourceHandle.null.value
         }
         
-        Self.log.info("Created resource table with \(self.configuration.resourceTableSize) entries")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            Self.log.info("Created resource table with \(self.configuration.resourceTableSize) entries")
+        }
     }
     
     private func setupResidencyTracking() {
@@ -235,7 +241,9 @@ public class Metal4BindlessArchitecture {
         
         guard !resourcesToProcess.isEmpty else { return }
         
-        Self.log.debug("Processing \(resourcesToProcess.count) pending resources in background")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            Self.log.debug("Processing \(resourcesToProcess.count) pending resources in background")
+        }
         
         for handle in resourcesToProcess {
             if let resource = resourceRegistry.getResource(for: handle) {
@@ -311,7 +319,9 @@ public class Metal4BindlessArchitecture {
         
         bindlessMetrics.renderPassesWithoutBinding += 1
         
-        Self.log.debug("Bound bindless resources for entire render pass - no per-draw binding needed")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            Self.log.debug("Bound bindless resources for entire render pass - no per-draw binding needed")
+        }
     }
     
     /// Bind to compute encoder for compute passes
@@ -348,7 +358,9 @@ public class Metal4BindlessArchitecture {
         pendingResources.removeAll()
         resourceLock.unlock()
         
-        Self.log.info("Handled memory pressure, cleared \(clearedCount) pending resources")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            Self.log.info("Handled memory pressure, cleared \(clearedCount) pending resources")
+        }
     }
     
     // MARK: - Statistics
@@ -365,6 +377,8 @@ public class Metal4BindlessArchitecture {
     }
     
     public func printStatistics() {
+        guard DebugFlags.isStatisticsLoggingEnabled else { return }
+        
         let stats = getStatistics()
         print("=== Metal 4 Bindless Architecture Statistics ===")
         print("Registered Resources: \(stats.registeredResources)")
@@ -555,7 +569,9 @@ private class ResidencyController {
         }
         
         // Log through a simple print for now
-        print("Metal4BindlessArchitecture: Evicted \(evictedHandles.count) resources due to memory pressure")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            print("Metal4BindlessArchitecture: Evicted \(evictedHandles.count) resources due to memory pressure")
+        }
     }
     
     func getInfo() -> ResidencyInfo {

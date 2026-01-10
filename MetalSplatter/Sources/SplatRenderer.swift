@@ -1058,7 +1058,9 @@ public class SplatRenderer {
                 orderedPoints = MortonOrder.reorder(points)
             }
             let duration = CFAbsoluteTimeGetCurrent() - startTime
-            Self.log.info("Morton ordering \(points.count) splats took \(String(format: "%.2f", duration * 1000))ms")
+            if DebugFlags.isStatisticsLoggingEnabled {
+                Self.log.info("Morton ordering \(points.count) splats took \(String(format: "%.2f", duration * 1000))ms")
+            }
         } else {
             orderedPoints = points
         }
@@ -1363,7 +1365,9 @@ public class SplatRenderer {
         lastPrecomputeViewMatrix = viewport.viewMatrix
         precomputedDataDirty = false
         
-        Self.log.debug("Batch precomputed \(self.splatCount) splats for current view")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            Self.log.debug("Batch precomputed \(self.splatCount) splats for current view")
+        }
     }
     
     /// Invalidate precomputed data when splats change
@@ -1472,7 +1476,9 @@ public class SplatRenderer {
         let changeThreshold = max(totalCount / 20, 100)  // At least 100 splats or 5%
         if abs(lastVisibleCount - previousCount) > changeThreshold {
             let percentage = totalCount > 0 ? Int(Float(visibleCount) / Float(totalCount) * 100) : 0
-            Self.log.info("Frustum culling: \(visibleCount)/\(totalCount) visible (\(percentage)%)")
+            if DebugFlags.isStatisticsLoggingEnabled {
+                Self.log.info("Frustum culling: \(visibleCount)/\(totalCount) visible (\(percentage)%)")
+            }
         }
     }
     
@@ -1742,7 +1748,9 @@ public class SplatRenderer {
             if isMetal4OptimizationsAvailable && splatCount > 5000 {
                 // Only log if this is a new scene or first time
                 if !metal4LoggedOnce || abs(splatCount - lastSplatCountLogged) > 1000 {
-                    Self.log.info("Metal 4.0: Enhanced pipeline active for \(splatCount) splats")
+                    if DebugFlags.isStatisticsLoggingEnabled {
+                        Self.log.info("Metal 4.0: Enhanced pipeline active for \(splatCount) splats")
+                    }
                     metal4LoggedOnce = true
                     lastSplatCountLogged = splatCount
                 }
@@ -2048,7 +2056,9 @@ public class SplatRenderer {
 
         // Prevent sort queue buildup - skip if too many sorts already in flight
         guard self.sortJobsInFlight < self.maxConcurrentSorts else {
-            Self.log.debug("Skipping sort request - \(self.sortJobsInFlight) job(s) already in flight (max: \(self.maxConcurrentSorts))")
+            if DebugFlags.isStatisticsLoggingEnabled {
+                Self.log.debug("Skipping sort request - \(self.sortJobsInFlight) job(s) already in flight (max: \(self.maxConcurrentSorts))")
+            }
             return
         }
 
@@ -2250,7 +2260,9 @@ public class SplatRenderer {
                 self.sorting = false
                 self.sortJobsInFlight -= 1
                 
-                Self.log.debug("Async sort completed in \(String(format: "%.1f", elapsed * 1000))ms")
+                if DebugFlags.isStatisticsLoggingEnabled {
+                    Self.log.debug("Async sort completed in \(String(format: "%.1f", elapsed * 1000))ms")
+                }
                 
                 if self.shouldResortForCurrentCamera() {
                     self.resort(useGPU: useGPU)

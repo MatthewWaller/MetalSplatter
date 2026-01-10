@@ -73,7 +73,9 @@ class Metal4CommandBufferPool {
         
         // Note: We can't actually clear active command buffers as they may be in use
         // This mainly serves to reset any tracking data
-        Self.log.info("Command buffer pool memory pressure handled")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            Self.log.info("Command buffer pool memory pressure handled")
+        }
     }
     
     deinit {
@@ -100,9 +102,13 @@ public class CommandBufferManager {
         // Initialize Metal 4 pool only on supported devices
         if #available(iOS 18.0, macOS 15.0, visionOS 2.0, *) {
             self.metal4Pool = Metal4CommandBufferPool(commandQueue: commandQueue)
-            Self.log.info("Initialized Metal 4 command buffer pool")
+            if DebugFlags.isStatisticsLoggingEnabled {
+                Self.log.info("Initialized Metal 4 command buffer pool")
+            }
         } else {
-            Self.log.info("Using legacy command buffer allocation (pre-Metal 4)")
+            if DebugFlags.isStatisticsLoggingEnabled {
+                Self.log.info("Using legacy command buffer allocation (pre-Metal 4)")
+            }
         }
     }
     
@@ -138,11 +144,15 @@ public class CommandBufferManager {
     /// Handle memory pressure by clearing the pool
     public func handleMemoryPressure() {
         clearPool()
-        Self.log.info("Cleared command buffer pool due to memory pressure")
+        if DebugFlags.isStatisticsLoggingEnabled {
+            Self.log.info("Cleared command buffer pool due to memory pressure")
+        }
     }
     
     /// Log current pool state for debugging
     public func logPoolState() {
+        guard DebugFlags.isStatisticsLoggingEnabled else { return }
+        
         if let stats = poolStatistics {
             Self.log.info("Command buffer pool state - Available: \(stats.available), Active: \(stats.active)")
         } else {
