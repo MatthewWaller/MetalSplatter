@@ -61,9 +61,6 @@ public class Metal4BindlessArchitecture {
     // Residency management (placeholder for future Metal APIs)
     private var residencyController: ResidencyController?
     
-    // Performance metrics
-    private var bindlessMetrics = BindlessMetrics()
-    
     // MARK: - Initialization
     
     public init(device: MTLDevice, configuration: Configuration = Configuration()) throws {
@@ -197,7 +194,7 @@ public class Metal4BindlessArchitecture {
             populateResource(handle, buffer: buffer)
         }
         
-        bindlessMetrics.resourcesRegistered += 1
+
         
         Self.log.debug("Registered \(String(describing: type)) buffer with handle: \(handle.value)")
         return handle
@@ -216,7 +213,7 @@ public class Metal4BindlessArchitecture {
             populateResource(handle, texture: texture)
         }
         
-        bindlessMetrics.resourcesRegistered += 1
+
         
         Self.log.debug("Registered texture with handle: \(handle.value)")
         return handle
@@ -256,7 +253,6 @@ public class Metal4BindlessArchitecture {
             }
         }
         
-        bindlessMetrics.resourcesPopulatedInBackground += resourcesToProcess.count
     }
     
     private func populateResource(_ handle: ResourceHandle, buffer: MTLBuffer) {
@@ -317,8 +313,6 @@ public class Metal4BindlessArchitecture {
         // Resources are automatically tracked by the argument buffer
         // useResource is deprecated in macOS 13.0+, no longer needed for bindless
         
-        bindlessMetrics.renderPassesWithoutBinding += 1
-        
         if DebugFlags.isStatisticsLoggingEnabled {
             Self.log.debug("Bound bindless resources for entire render pass - no per-draw binding needed")
         }
@@ -345,7 +339,6 @@ public class Metal4BindlessArchitecture {
             commandBuffer: commandBuffer
         )
         
-        bindlessMetrics.residencyUpdates += 1
     }
     
     /// Handle memory pressure by evicting unused resources
@@ -363,35 +356,6 @@ public class Metal4BindlessArchitecture {
         }
     }
     
-    // MARK: - Statistics
-    
-    public func getStatistics() -> BindlessStatistics {
-        return BindlessStatistics(
-            registeredResources: resourceRegistry.count,
-            pendingResources: pendingResources.count,
-            argumentBufferSize: indirectArgumentBuffer?.length ?? 0,
-            resourceTableSize: resourceTable?.length ?? 0,
-            metrics: bindlessMetrics,
-            residencyInfo: residencyController?.getInfo() ?? ResidencyInfo()
-        )
-    }
-    
-    public func printStatistics() {
-        guard DebugFlags.isStatisticsLoggingEnabled else { return }
-        
-        let stats = getStatistics()
-        print("=== Metal 4 Bindless Architecture Statistics ===")
-        print("Registered Resources: \(stats.registeredResources)")
-        print("Pending Resources: \(stats.pendingResources)")
-        print("Argument Buffer: \(stats.argumentBufferSize / 1024) KB")
-        print("Resource Table: \(stats.resourceTableSize / 1024) KB")
-        print("Resources Populated in Background: \(stats.metrics.resourcesPopulatedInBackground)")
-        print("Render Passes Without Per-Draw Binding: \(stats.metrics.renderPassesWithoutBinding)")
-        print("Residency Updates: \(stats.metrics.residencyUpdates)")
-        print("Resident Resources: \(stats.residencyInfo.residentCount)")
-        print("Evicted Resources: \(stats.residencyInfo.evictedCount)")
-        print("Memory Pressure Events: \(stats.residencyInfo.memoryPressureEvents)")
-    }
 }
 
 // MARK: - Supporting Types
@@ -574,43 +538,4 @@ private class ResidencyController {
         }
     }
     
-    func getInfo() -> ResidencyInfo {
-        lock.lock()
-        defer { lock.unlock() }
-        
-        let totalMemory = resourceMemory.values.reduce(0, +)
-        
-        return ResidencyInfo(
-            residentCount: residentResources.count,
-            evictedCount: 0,
-            totalMemoryMB: Float(totalMemory) / (1024 * 1024),
-            memoryPressureEvents: memoryPressureEvents
-        )
-    }
-}
-
-/// Metrics for bindless performance tracking
-public struct BindlessMetrics {
-    var resourcesRegistered: Int = 0
-    var resourcesPopulatedInBackground: Int = 0
-    var renderPassesWithoutBinding: Int = 0
-    var residencyUpdates: Int = 0
-}
-
-/// Residency information
-public struct ResidencyInfo {
-    var residentCount: Int = 0
-    var evictedCount: Int = 0
-    var totalMemoryMB: Float = 0
-    var memoryPressureEvents: Int = 0
-}
-
-/// Statistics for bindless architecture
-public struct BindlessStatistics {
-    public let registeredResources: Int
-    public let pendingResources: Int
-    public let argumentBufferSize: Int
-    public let resourceTableSize: Int
-    public let metrics: BindlessMetrics
-    public let residencyInfo: ResidencyInfo
 }

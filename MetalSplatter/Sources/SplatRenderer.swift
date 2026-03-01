@@ -87,15 +87,6 @@ public class SplatRenderer {
         public let splatCount: Int
         public let frameTime: TimeInterval
 
-        // Buffer pool statistics for performance monitoring
-        public struct BufferPoolStats {
-            public let availableBuffers: Int
-            public let leasedBuffers: Int
-            public let totalMemoryMB: Float
-        }
-
-        public let sortBufferPoolStats: BufferPoolStats?
-
         // Sort queue status
         public let sortJobsInFlight: Int
     }
@@ -1537,23 +1528,7 @@ public class SplatRenderer {
     }
     
     // MARK: - Buffer Pool Management
-    
-    /// Returns statistics about buffer pool usage for monitoring and debugging
-    public func getBufferPoolStatistics() -> (splatPoolAvailable: Int, splatPoolLeased: Int, splatPoolMemoryMB: Float,
-                                              indexPoolAvailable: Int, indexPoolLeased: Int, indexPoolMemoryMB: Float) {
-        let splatStats = splatBufferPool.getStatistics()
-        let indexStats = indexBufferPool.getStatistics()
-        
-        return (
-            splatPoolAvailable: splatStats.availableBuffers,
-            splatPoolLeased: splatStats.leasedBuffers,
-            splatPoolMemoryMB: splatStats.totalMemoryMB,
-            indexPoolAvailable: indexStats.availableBuffers,
-            indexPoolLeased: indexStats.leasedBuffers,
-            indexPoolMemoryMB: indexStats.totalMemoryMB
-        )
-    }
-    
+
     /// Manually triggers memory pressure cleanup on buffer pools
     public func trimBufferPools() {
         splatBufferPool.trimToMemoryPressure()
@@ -1979,17 +1954,6 @@ public class SplatRenderer {
         
         onRenderComplete?(lastFrameTime)
 
-        // Collect buffer pool statistics for performance monitoring
-        let distancePoolStats = sortDistanceBufferPool.getStatistics()
-        let indexPoolStats = sortIndexBufferPool.getStatistics()
-
-        // Combine sort buffer pool stats (distance + index buffers)
-        let sortBufferStats = FrameStatistics.BufferPoolStats(
-            availableBuffers: distancePoolStats.availableBuffers + indexPoolStats.availableBuffers,
-            leasedBuffers: distancePoolStats.leasedBuffers + indexPoolStats.leasedBuffers,
-            totalMemoryMB: distancePoolStats.totalMemoryMB + indexPoolStats.totalMemoryMB
-        )
-
         let stats = FrameStatistics(
             ready: !sorting,
             loadingCount: sorting ? 1 : 0,
@@ -1997,7 +1961,6 @@ public class SplatRenderer {
             bufferUploadCount: frameBufferUploads,
             splatCount: splatCount,
             frameTime: lastFrameTime,
-            sortBufferPoolStats: sortBufferStats,
             sortJobsInFlight: sortJobsInFlight
         )
         onFrameReady?(stats)

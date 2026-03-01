@@ -361,41 +361,6 @@ public class MetalBufferPool<T> {
         }
     }
     
-    // MARK: - Statistics
-    
-    public struct PoolStatistics {
-        public let availableBuffers: Int
-        public let leasedBuffers: Int
-        public let totalMemoryMB: Float
-        public let averageBufferAge: TimeInterval
-        
-        public init(availableBuffers: Int, leasedBuffers: Int, totalMemoryMB: Float, averageBufferAge: TimeInterval) {
-            self.availableBuffers = availableBuffers
-            self.leasedBuffers = leasedBuffers
-            self.totalMemoryMB = totalMemoryMB
-            self.averageBufferAge = averageBufferAge
-        }
-    }
-    
-    /// Returns current pool statistics
-    public func getStatistics() -> PoolStatistics {
-        return queue.sync {
-            let totalMemory = availableBuffers.reduce(0) { total, pooledBuffer in
-                total + pooledBuffer.buffer.capacity * MemoryLayout<T>.stride
-            }
-            
-            let averageAge = availableBuffers.isEmpty ? 0 : 
-                availableBuffers.reduce(0) { $0 + $1.age } / Double(availableBuffers.count)
-            
-            return PoolStatistics(
-                availableBuffers: availableBuffers.count,
-                leasedBuffers: leasedBuffers.count,
-                totalMemoryMB: Float(totalMemory) / (1024 * 1024),
-                averageBufferAge: averageAge
-            )
-        }
-    }
-    
     // MARK: - Metal 4.0 Optimizations
     
     /// Setup Metal 4.0 optimizations for buffer management

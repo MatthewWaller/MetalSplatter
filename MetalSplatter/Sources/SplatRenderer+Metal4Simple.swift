@@ -52,31 +52,6 @@ extension SplatRenderer {
         UserDefaults.standard.set(true, forKey: "MetalSplatter.Metal4Active")
     }
     
-    /// Print Metal 4 statistics using real argument buffer manager data
-    @available(iOS 26.0, macOS 26.0, tvOS 26.0, visionOS 26.0, *)
-    public func printMetal4Statistics() {
-        guard DebugFlags.isStatisticsLoggingEnabled else { return }
-        
-        let isActive = UserDefaults.standard.bool(forKey: "MetalSplatter.Metal4Active")
-        
-        print("=== Metal 4 Bindless Status ===")
-        print("Available: \(isMetal4BindlessAvailable)")
-        print("Active: \(isActive)")
-        print("Device: \(device.name)")
-        print("GPU Memory: \(device.recommendedMaxWorkingSetSize / 1024 / 1024)MB")
-        
-        // Print real argument buffer statistics if available
-        if let manager = Self._metal4ArgumentBufferManager {
-            let stats = manager.getStatistics()
-            print("--- Real MTLArgumentEncoder Stats ---")
-            print("Argument Buffer Size: \(stats.argumentBufferSize) bytes")
-            print("Resource Count: \(stats.resourceCount)")
-            print("Total Resource Memory: \(stats.totalResourceMemoryMB) MB")
-            print("Residency Set Size: \(stats.residencySetSize)")
-        }
-        
-        print("===============================")
-    }
     
     /// Make resources resident for command buffer using real Metal APIs
     @available(iOS 26.0, macOS 26.0, tvOS 26.0, visionOS 26.0, *)

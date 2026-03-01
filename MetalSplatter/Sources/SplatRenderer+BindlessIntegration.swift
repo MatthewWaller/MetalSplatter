@@ -167,9 +167,6 @@ extension SplatRenderer {
         )
         
         renderEncoder.endEncoding()
-        
-        // Log performance improvement
-        logBindlessPerformance(bindless)
     }
     
     /// Get visible resource handles for residency management
@@ -187,26 +184,6 @@ extension SplatRenderer {
         return handles
     }
     
-    /// Log bindless performance metrics
-    @available(iOS 18.0, macOS 15.0, visionOS 2.0, *)
-    private func logBindlessPerformance(_ bindless: Metal4BindlessArchitecture) {
-        let stats = bindless.getStatistics()
-        
-        if uniformBufferIndex % 100 == 0, DebugFlags.isStatisticsLoggingEnabled { // Log periodically
-            Self.log.info("=== Bindless Performance ===")
-            Self.log.info("Render passes without per-draw binding: \(stats.metrics.renderPassesWithoutBinding)")
-            Self.log.info("Resources populated in background: \(stats.metrics.resourcesPopulatedInBackground)")
-            Self.log.info("Resident resources: \(stats.residencyInfo.residentCount)")
-            Self.log.info("Total GPU memory: \(stats.residencyInfo.totalMemoryMB) MB")
-            
-            // Calculate CPU overhead reduction
-            let traditionalBindingCost = Float(splatBuffer.count) * 0.001 // Estimated ms per binding
-            let bindlessOverhead: Float = 0.01 // Fixed overhead in ms
-            let reduction = (traditionalBindingCost - bindlessOverhead) / traditionalBindingCost * 100
-            
-            Self.log.info("Estimated CPU overhead reduction: \(Int(reduction))%")
-        }
-    }
     
     /// Get associated bindless architecture
     @available(iOS 18.0, macOS 15.0, visionOS 2.0, *)
@@ -225,18 +202,6 @@ extension SplatRenderer {
         }
     }
     
-    /// Print detailed bindless statistics
-    @available(iOS 18.0, macOS 15.0, visionOS 2.0, *)
-    public func printBindlessStatistics() {
-        guard DebugFlags.isStatisticsLoggingEnabled else { return }
-        
-        guard let bindless = getBindlessArchitecture() else {
-            Self.log.info("Bindless architecture not initialized")
-            return
-        }
-        
-        bindless.printStatistics()
-    }
 }
 
 // Associated object key for storing bindless architecture

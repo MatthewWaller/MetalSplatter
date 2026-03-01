@@ -121,9 +121,6 @@ class Metal4IntegrationTests: XCTestCase {
         
         XCTAssertNoThrow({
             try renderer.initializeMetal4Bindless()
-            
-            // Test debug statistics (should not crash)
-            renderer.printMetal4Statistics()
         }, "Argument table resource management should work correctly")
     }
     

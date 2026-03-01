@@ -133,20 +133,6 @@ public class Metal4ArgumentBufferManager {
         }
     }
     
-    // MARK: - Statistics
-    
-    public func getStatistics() -> ArgumentBufferStatistics {
-        let bufferCount = splatBuffers.count + uniformBuffers.count
-        let totalMemory = splatBuffers.reduce(0) { $0 + $1.length } + 
-                         uniformBuffers.reduce(0) { $0 + $1.length }
-        
-        return ArgumentBufferStatistics(
-            argumentBufferSize: argumentBuffer?.length ?? 0,
-            resourceCount: bufferCount,
-            totalResourceMemoryMB: Float(totalMemory) / (1024 * 1024),
-            residencySetSize: splatBuffers.count
-        )
-    }
 }
 
 // MARK: - Supporting Types
@@ -170,13 +156,6 @@ public enum Metal4Error: LocalizedError {
             return "Metal4ArgumentBufferManager not properly initialized"
         }
     }
-}
-
-public struct ArgumentBufferStatistics {
-    public let argumentBufferSize: Int
-    public let resourceCount: Int
-    public let totalResourceMemoryMB: Float
-    public let residencySetSize: Int
 }
 
 // MARK: - Helper Extension
