@@ -197,8 +197,12 @@ public class ARSplatRenderer: NSObject {
             throw error
         }
         
-        // Initialize core splat renderer - try FastSHSplatRenderer first for better performance
-        if let fastRenderer = try? FastSHSplatRenderer(
+        // Initialize core splat renderer. FastSHSplatRenderer's *optimized* paths
+        // require Apple Family 9; on older GPUs it logs "optimizations disabled"
+        // and falls back to a code path that empirically triggers GPU command
+        // buffer aborts on M1 iPad. Force plain SplatRenderer on Family 8.
+        let useFastSH = device.supportsFamily(.apple9)
+        if useFastSH, let fastRenderer = try? FastSHSplatRenderer(
             device: device,
             colorFormat: colorFormat,
             depthFormat: depthFormat,
@@ -220,17 +224,27 @@ public class ARSplatRenderer: NSObject {
                 maxSimultaneousRenders: maxSimultaneousRenders
             )
             self.fastSHRenderer = nil
-            print("ARSplatRenderer: Using standard SplatRenderer")
+            print("ARSplatRenderer: Using standard SplatRenderer (FastSH gated to Family 9+)")
         }
-        
-        // Enable mesh shaders if supported (Metal 3+)
-        if splatRenderer.isMeshShaderSupported {
+
+        // Enable mesh shaders only on Family 9. They're advertised as "supported"
+        // on Family 7+ (M1 reports support) but the splat mesh-shader path produces
+        // GPU aborts on M1 in practice. Stay on the traditional vertex pipeline.
+        if device.supportsFamily(.apple9), splatRenderer.isMeshShaderSupported {
             splatRenderer.meshShaderEnabled = true
             print("ARSplatRenderer: ✅ Mesh shaders enabled - GPU geometry generation")
+        } else {
+            print("ARSplatRenderer: Mesh shaders skipped (gated to Apple Family 9+)")
         }
         
-        // Initialize Metal 4 bindless resources by default (matches other renderers)
-        if #available(iOS 26.0, *) {
+        // Initialize Metal 4 bindless resources by default (matches other renderers).
+        // Gated on Apple Family 9+ (A17 Pro / M3 and later). On older GPUs (M1/M2
+        // iPad, pre-A17 iPhone), the Metal 4 fast paths fall back to slower code
+        // and the per-frame compute work in updateAdaptiveQuality saturates the
+        // GPU command queue, causing ARFrame backlog and on iPad a full system
+        // freeze when WindowServer's GPU access is starved.
+        let supportsMetal4FastPath = device.supportsFamily(.apple9)
+        if #available(iOS 26.0, *), supportsMetal4FastPath {
             do {
                 try splatRenderer.initializeMetal4Bindless()
                 print("ARSplatRenderer: ✅ Initialized Metal 4 bindless resources")
@@ -239,15 +253,18 @@ public class ARSplatRenderer: NSObject {
                 // Continue with traditional rendering
             }
         } else {
-            print("ARSplatRenderer: Metal 4 bindless not available on iOS < 26.0")
+            print("ARSplatRenderer: Metal 4 bindless skipped (requires iOS 26 + Apple Family 9 GPU)")
         }
-        
+
         // Note: Removed composition pipeline creation for single-pass rendering
-        
+
         super.init()
 
-        // Initialize additional Metal 4 AR enhancements after super.init()
-        if #available(iOS 26.0, *) {
+        // Initialize additional Metal 4 AR enhancements after super.init().
+        // Same Apple Family 9 gate — adaptive-quality compute kernel runs every
+        // frame and allocates a per-frame MTLBuffer, which is too costly on
+        // older GPUs.
+        if #available(iOS 26.0, *), supportsMetal4FastPath {
             do {
                 try initializeMetal4MPP()
                 enableTensorBasedARFeatures()
@@ -444,30 +461,40 @@ public class ARSplatRenderer: NSObject {
     public func startARSession() {
         print("ARSplatRenderer: Starting AR session (hasBeenPlaced=\(hasBeenPlaced), isWaitingForARTracking=\(isWaitingForARTracking))...")
         let configuration = ARWorldTrackingConfiguration()
-        
-        // Enable all plane detection for maximum surface coverage
-        configuration.planeDetection = [.horizontal, .vertical]
-        
-        // Enable scene reconstruction if available (LiDAR devices)
-        if ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
+
+        // On Family-8 GPUs (M1/M2 iPad, pre-A17 iPhone) the splat render path
+        // already saturates the GPU. Adding LiDAR mesh reconstruction, scene
+        // depth, and a high-res 60fps capture format on top causes ARFrame
+        // queue backlog and IOGPUMetalError on iPad — visible as a full
+        // device freeze. Use a lighter config on these GPUs.
+        let supportsMetal4FastPath = device.supportsFamily(.apple9)
+
+        // Plane detection — keep horizontal everywhere; vertical doubles
+        // CPU/GPU plane work, so trim it on older GPUs.
+        configuration.planeDetection = supportsMetal4FastPath ? [.horizontal, .vertical] : [.horizontal]
+
+        // Enable scene reconstruction (LiDAR mesh) only on fast-path GPUs.
+        // It's one of the most expensive ARKit features.
+        if supportsMetal4FastPath, ARWorldTrackingConfiguration.supportsSceneReconstruction(.mesh) {
             configuration.sceneReconstruction = .mesh
             print("ARSplatRenderer: ✅ LiDAR scene reconstruction enabled")
         } else {
-            print("ARSplatRenderer: ⚠️ LiDAR not available, using visual-inertial tracking")
+            print("ARSplatRenderer: ⚠️ Scene reconstruction skipped (older GPU or no LiDAR)")
         }
-        
+
         configuration.frameSemantics = []
-        if ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) {
+        if supportsMetal4FastPath, ARWorldTrackingConfiguration.supportsFrameSemantics(.sceneDepth) {
             configuration.frameSemantics.insert(.sceneDepth)
             print("ARSplatRenderer: ✅ Scene depth enabled")
         }
-        
+
         // Enable automatic image stabilization for better tracking
         configuration.isAutoFocusEnabled = true
-        
-        // Prefer a stable mid-resolution format to reduce capture overhead
+
+        // Prefer a stable mid-resolution format to reduce capture overhead.
+        // On older GPUs, prefer 30fps to halve per-second draw work.
         let videoFormats = ARWorldTrackingConfiguration.supportedVideoFormats
-        if let preferredFormat = selectPreferredVideoFormat(from: videoFormats) {
+        if let preferredFormat = selectPreferredVideoFormat(from: videoFormats, prefers60fps: supportsMetal4FastPath) {
             configuration.videoFormat = preferredFormat
             print("ARSplatRenderer: ✅ Camera mode set to \(Int(preferredFormat.imageResolution.width))x\(Int(preferredFormat.imageResolution.height)) @ \(preferredFormat.framesPerSecond)fps")
         }
@@ -478,36 +505,50 @@ public class ARSplatRenderer: NSObject {
         hasBeenPlaced = false // Allow auto-placement to happen again
         
         print("ARSplatRenderer: AR session started with optimized configuration")
-        print("ARSplatRenderer: - Plane detection: horizontal + vertical")
+        print("ARSplatRenderer: - Plane detection: \(configuration.planeDetection)")
         print("ARSplatRenderer: - Scene reconstruction: \(configuration.sceneReconstruction)")
         print("ARSplatRenderer: - Frame semantics: \(configuration.frameSemantics)")
         print("ARSplatRenderer: - Auto focus: \(configuration.isAutoFocusEnabled)")
     }
 
-    private func selectPreferredVideoFormat(from formats: [ARWorldTrackingConfiguration.VideoFormat]) -> ARWorldTrackingConfiguration.VideoFormat? {
+    private func selectPreferredVideoFormat(from formats: [ARWorldTrackingConfiguration.VideoFormat],
+                                            prefers60fps: Bool = true) -> ARWorldTrackingConfiguration.VideoFormat? {
         guard !formats.isEmpty else { return nil }
+
+        // Tighter resolution bounds for older GPUs to keep per-frame texture
+        // sampling and IOSurface bandwidth manageable.
+        let maxLongEdge = prefers60fps ? 1920 : 1280
+        let maxShortEdge = prefers60fps ? 1440 : 720
 
         func withinBounds(_ format: ARWorldTrackingConfiguration.VideoFormat) -> Bool {
             let width = Int(format.imageResolution.width)
             let height = Int(format.imageResolution.height)
-            return (width <= 1920 && height <= 1440) || (width <= 1440 && height <= 1920)
+            return (width <= maxLongEdge && height <= maxShortEdge) || (width <= maxShortEdge && height <= maxLongEdge)
         }
 
-        if let sixtyFps = formats
-            .filter({ format in withinBounds(format) && format.framesPerSecond >= 60 })
+        let targetFps = prefers60fps ? 60 : 30
+
+        if let preferredFps = formats
+            .filter({ format in withinBounds(format) && Int(format.framesPerSecond) == targetFps })
             .max(by: { ($0.imageResolution.width * $0.imageResolution.height) < ($1.imageResolution.width * $1.imageResolution.height) }) {
-            return sixtyFps
+            return preferredFps
         }
 
-        if let thirtyFps = formats
-            .filter({ format in withinBounds(format) && format.framesPerSecond >= 30 })
-            .max(by: { ($0.imageResolution.width * $0.imageResolution.height) < ($1.imageResolution.width * $1.imageResolution.height) }) {
-            return thirtyFps
+        // Fall back to any format within bounds at the highest available framerate ≤ targetFps
+        if let fallback = formats
+            .filter({ format in withinBounds(format) && Int(format.framesPerSecond) <= targetFps })
+            .max(by: { lhs, rhs in
+                if lhs.framesPerSecond != rhs.framesPerSecond {
+                    return lhs.framesPerSecond < rhs.framesPerSecond
+                }
+                return (lhs.imageResolution.width * lhs.imageResolution.height) < (rhs.imageResolution.width * rhs.imageResolution.height)
+            }) {
+            return fallback
         }
 
         return formats.min { lhs, rhs in
-            let lhsFpsPenalty = abs(Int(lhs.framesPerSecond) - 60)
-            let rhsFpsPenalty = abs(Int(rhs.framesPerSecond) - 60)
+            let lhsFpsPenalty = abs(Int(lhs.framesPerSecond) - targetFps)
+            let rhsFpsPenalty = abs(Int(rhs.framesPerSecond) - targetFps)
             if lhsFpsPenalty == rhsFpsPenalty {
                 return (lhs.imageResolution.width * lhs.imageResolution.height) < (rhs.imageResolution.width * rhs.imageResolution.height)
             }
